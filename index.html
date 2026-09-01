@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synapse Clinical Note Summarizer</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="dark-theme">
+  <!-- Navigation Header -->
+  <header class="app-header">
+    <div class="header-logo">
+      <div class="logo-icon-container">
+        <i data-lucide="activity" class="pulse-icon"></i>
+        <div class="glow-ring"></div>
+      </div>
+      <div class="logo-text">
+        <span class="logo-title">SYNAPSE</span>
+        <span class="logo-subtitle">Clinical Summarizer</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="engine-badge" id="engine-badge">
+        <span class="pulse-dot"></span>
+        <span class="engine-text">Simulation Mode</span>
+      </div>
+      <button class="icon-btn btn-settings" id="btn-open-settings" title="Configure API Settings">
+        <i data-lucide="settings"></i>
+        <span>API Setup</span>
+      </button>
+      <button class="icon-btn btn-print" id="btn-print-summary" title="Print PDF summary" disabled>
+        <i data-lucide="printer"></i>
+        <span>Print</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Split-Screen Container -->
+  <main class="dashboard-container">
+    
+    <!-- Left Pane: Input and Editor -->
+    <section class="pane input-pane">
+      <div class="pane-header">
+        <div class="pane-title-group">
+          <i data-lucide="file-text" class="text-teal"></i>
+          <h2>Clinical Note Input</h2>
+        </div>
+        <div class="template-selector-container">
+          <select id="template-select" class="form-select">
+            <option value="" disabled selected>Load Clinical Template...</option>
+            <option value="cardiology">Cardiology: Chest Pain Follow-up</option>
+            <option value="orthopedics">Orthopedics: Acute Knee Injury</option>
+            <option value="neurology">Neurology: Stroke Mimic / Migraine</option>
+            <option value="pediatrics">Pediatrics: Asthma Exacerbation</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="editor-container">
+        <div class="editor-gutter">
+          <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span>
+        </div>
+        <textarea 
+          id="clinical-note-input" 
+          placeholder="Paste or write the unstructured clinical note here...&#10;&#10;For example: &#10;Patient is a 54-year-old male presenting with intermittent central pressure-like chest pain radiating to left arm..."
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <div class="editor-footer">
+        <div class="editor-stats">
+          <span id="char-count">0 characters</span>
+          <span class="separator">•</span>
+          <span id="word-count">0 words</span>
+        </div>
+        <div class="editor-actions">
+          <button class="text-btn btn-clear" id="btn-clear-note">
+            <i data-lucide="trash-2"></i> Clear
+          </button>
+          <button class="text-btn btn-dictate" id="btn-simulate-dictation">
+            <i data-lucide="mic"></i> Simulate Dictation
+          </button>
+        </div>
+      </div>
+
+      <div class="cta-container">
+        <button class="btn-primary" id="btn-summarize">
+          <span class="btn-text">Process & Summarize Note</span>
+          <i data-lucide="sparkles"></i>
+          <div class="btn-glow"></div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Right Pane: Summary Dashboard -->
+    <section class="pane output-pane">
+      
+      <!-- Empty/Idle State -->
+      <div class="empty-state" id="empty-state-view">
+        <div class="empty-state-graphic">
+          <div class="radar-scan">
+            <div class="pulse-ring scale-1"></div>
+            <div class="pulse-ring scale-2"></div>
+            <div class="pulse-ring scale-3"></div>
+            <i data-lucide="activity-square" class="graphic-icon"></i>
+          </div>
+        </div>
+        <h3>Analysis Engine Ready</h3>
+        <p>Input unstructured clinical text or select a medical specialty template to begin extraction and safety verification.</p>
+        <div class="feature-badges">
+          <div class="feature-badge"><i data-lucide="check-circle-2"></i> Clinical Safety Checks</div>
+          <div class="feature-badge"><i data-lucide="heart"></i> Vitals Dashboard</div>
+          <div class="feature-badge"><i data-lucide="alert-triangle"></i> Alert Extraction</div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-state hidden" id="loading-state-view">
+        <div class="loading-spinner-container">
+          <div class="spinner-outer"></div>
+          <div class="spinner-inner"></div>
+          <i data-lucide="cpu" class="loading-icon animate-pulse"></i>
+        </div>
+        <h3 id="loading-step">Parsing clinical note...</h3>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        </div>
+        <p class="loading-detail" id="loading-detail">Identifying patient demographic data...</p>
+      </div>
+
+      <!-- Loaded Active Dashboard -->
+      <div class="dashboard-active hidden" id="dashboard-active-view">
+        <div class="dashboard-tabs">
+          <button class="tab-link active" data-tab="summary-view">
+            <i data-lucide="layout-dashboard"></i> Structured Summary
+          </button>
+          <button class="tab-link" data-tab="alerts-view">
+            <i data-lucide="shield-alert"></i> Clinical Alerts
+            <span class="badge-count hidden" id="alerts-count">0</span>
+          </button>
+          <button class="tab-link" data-tab="markdown-view">
+            <i data-lucide="code-2"></i> Markdown Report
+          </button>
+        </div>
+
+        <div class="tab-contentactive" id="tab-content-container">
+          
+          <!-- TAB 1: STRUCTURED SUMMARY VIEW -->
+          <div class="tab-pane active" id="summary-view">
+            
+            <!-- Patient Banner Card -->
+            <div class="patient-banner">
+              <div class="patient-avatar">
+                <i data-lucide="user"></i>
+              </div>
+              <div class="patient-info-summary">
+                <div class="patient-meta">
+                  <span class="patient-tag" id="summary-gender">MALE</span>
+                  <span class="patient-tag" id="summary-age">54 YEARS OLD</span>
+                  <span class="status-badge urgent hidden" id="badge-urgent-case">URGENT FINDINGS</span>
+                </div>
+                <div class="patient-overview" id="summary-narrative-text">
+                  Not mentioned
+                </div>
+              </div>
+            </div>
+
+            <!-- Double Grid: Chief Complaint & HPI -->
+            <div class="grid-2-col">
+              <div class="summary-card flex-1">
+                <div class="card-title">
+                  <i data-lucide="stethoscope" class="text-rose"></i>
+                  <h3>Chief Complaint</h3>
+                </div>
+                <div class="card-body complaint-text" id="summary-chief-complaint">
+                  Not mentioned
+                </div>
+              </div>
+              
+              <div class="summary-card flex-2">
+                <div class="card-title">
+                  <i data-lucide="clock" class="text-blue"></i>
+                  <h3>History of Present Illness</h3>
+                </div>
+                <div class="card-body hpi-text" id="summary-hpi">
+                  Not mentioned
+                </div>
+              </div>
+            </div>
+
+            <!-- Vital Signs Dashboard Grid -->
+            <div class="vitals-dashboard">
+              <div class="vitals-header">
+                <i data-lucide="heart" class="text-rose"></i>
+                <h3>Vital Signs</h3>
+              </div>
+              <div class="vitals-grid">
+                
+                <!-- BP -->
+                <div class="vital-card" id="vital-card-bp">
+                  <div class="vital-meta">
+                    <span class="vital-label">Blood Pressure</span>
+                    <i data-lucide="activity" class="vital-icon"></i>
+                  </div>
+                  <div class="vital-value-group">
+                    <span class="vital-value" id="vital-bp-val">--</span>
+                    <span class="vital-unit">mmHg</span>
+                  </div>
+                  <span class="vital-status-badge" id="vital-bp-status">No data</span>
+                </div>
+
+                <!-- HR -->
+                <div class="vital-card" id="vital-card-hr">
+                  <div class="vital-meta">
+                    <span class="vital-label">Heart Rate</span>
+                    <i data-lucide="heart-pulse" class="vital-icon"></i>
+                  </div>
+                  <div class="vital-value-group">
+                    <span class="vital-value" id="vital-hr-val">--</span>
+                    <span class="vital-unit">bpm</span>
+                  </div>
+                  <span class="vital-status-badge" id="vital-hr-status">No data</span>
+                </div>
+
+                <!-- Temp -->
+                <div class="vital-card" id="vital-card-temp">
+                  <div class="vital-meta">
+                    <span class="vital-label">Temperature</span>
+                    <i data-lucide="thermometer" class="vital-icon"></i>
+                  </div>
+                  <div class="vital-value-group">
+                    <span class="vital-value" id="vital-temp-val">--</span>
+                    <span class="vital-unit">°F</span>
+                  </div>
+                  <span class="vital-status-badge" id="vital-temp-status">No data</span>
+                </div>
+
+                <!-- SpO2 -->
+                <div class="vital-card" id="vital-card-spo2">
+                  <div class="vital-meta">
+                    <span class="vital-label">O₂ Saturation</span>
+                    <i data-lucide="wind" class="vital-icon"></i>
+                  </div>
+                  <div class="vital-value-group">
+                    <span class="vital-value" id="vital-spo2-val">--</span>
+                    <span class="vital-unit">%</span>
+                  </div>
+                  <span class="vital-status-badge" id="vital-spo2-status">No data</span>
+                </div>
+
+                <!-- RR -->
+                <div class="vital-card" id="vital-card-rr">
+                  <div class="vital-meta">
+                    <span class="vital-label">Resp Rate</span>
+                    <i data-lucide="timer" class="vital-icon"></i>
+                  </div>
+                  <div class="vital-value-group">
+                    <span class="vital-value" id="vital-rr-val">--</span>
+                    <span class="vital-unit">/min</span>
+                  </div>
+                  <span class="vital-status-badge" id="vital-rr-status">No data</span>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Medical History & Physical Exam findings -->
+            <div class="grid-2-col">
+              <div class="summary-card">
+                <div class="card-title">
+                  <i data-lucide="clipboard-list" class="text-amber"></i>
+                  <h3>Medical History</h3>
+                </div>
+                <div class="card-body">
+                  <ul class="bullet-list" id="summary-med-history">
+                    <li>Not mentioned</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="summary-card">
+                <div class="card-title">
+                  <i data-lucide="body" class="text-teal"></i>
+                  <h3>Examination Findings</h3>
+                </div>
+                <div class="card-body">
+                  <ul class="bullet-list" id="summary-exam-findings">
+                    <li>Not mentioned</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Investigations & Labs -->
+            <div class="summary-card">
+              <div class="card-title">
+                <i data-lucide="beaker" class="text-indigo"></i>
+                <h3>Investigations & Lab Results</h3>
+              </div>
+              <div class="card-body">
+                <ul class="labs-list" id="summary-labs">
+                  <li class="empty-list-msg">Not mentioned</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Diagnostic Assessment -->
+            <div class="summary-card">
+              <div class="card-title">
+                <i data-lucide="brain-circuit" class="text-purple"></i>
+                <h3>Assessment & Diagnoses</h3>
+              </div>
+              <div class="card-body">
+                <div class="diagnoses-container" id="summary-assessment">
+                  <!-- Badges and classifications -->
+                  <div class="empty-list-msg">Not mentioned</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Grid: Current Medications & Treatment Plan -->
+            <div class="grid-2-col">
+              <div class="summary-card">
+                <div class="card-title">
+                  <i data-lucide="pill" class="text-emerald"></i>
+                  <h3>Medications</h3>
+                </div>
+                <div class="card-body">
+                  <ul class="meds-list" id="summary-medications">
+                    <li class="empty-list-msg">Not mentioned</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="summary-card">
+                <div class="card-title">
+                  <i data-lucide="calendar-check" class="text-teal"></i>
+                  <h3>Treatment & Plan</h3>
+                </div>
+                <div class="card-body">
+                  <ul class="bullet-list" id="summary-plan">
+                    <li>Not mentioned</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Important Findings / Follow-up -->
+            <div class="summary-card highlight-card" id="follow-up-card">
+              <div class="card-title">
+                <i data-lucide="bell-ring" class="text-rose"></i>
+                <h3>Important Findings & Follow-up</h3>
+              </div>
+              <div class="card-body" id="summary-followup">
+                Not mentioned
+              </div>
+            </div>
+
+          </div>
+
+          <!-- TAB 2: CLINICAL ALERTS VIEW -->
+          <div class="tab-pane hidden" id="alerts-view">
+            <div class="alerts-summary-header">
+              <h3>Safety & Clinical Alert System</h3>
+              <p>Automated warning signals parsed from vital signs and unstructured clinician notes.</p>
+            </div>
+            
+            <div class="alerts-feed" id="alerts-feed-container">
+              <div class="alert-item success">
+                <i data-lucide="shield-check" class="alert-feed-icon"></i>
+                <div class="alert-feed-info">
+                  <h4>No Clinical Anomalies Detected</h4>
+                  <p>All extracted vital signs are within normal clinical thresholds. No urgent alerts parsed.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="safety-checklist">
+              <h3>EHR Summarization Completeness Checklist</h3>
+              <div class="checklist-grid">
+                <div class="checklist-item" id="chk-demographics">
+                  <i data-lucide="check-square" class="checked"></i>
+                  <span>Demographics Found</span>
+                </div>
+                <div class="checklist-item" id="chk-vitals">
+                  <i data-lucide="check-square" class="checked"></i>
+                  <span>Vital Signs Found</span>
+                </div>
+                <div class="checklist-item" id="chk-complaint">
+                  <i data-lucide="check-square" class="checked"></i>
+                  <span>Chief Complaint Identified</span>
+                </div>
+                <div class="checklist-item" id="chk-meds">
+                  <i data-lucide="check-square" class="checked"></i>
+                  <span>Active Medications Parsed</span>
+                </div>
+                <div class="checklist-item" id="chk-allergies">
+                  <i data-lucide="check-square" class="checked"></i>
+                  <span>Allergy Details Reviewed</span>
+                </div>
+                <div class="checklist-item" id="chk-followup">
+                  <i data-lucide="check-square" class="checked"></i>
+                  <span>Follow-up & Warnings Documented</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: MARKDOWN REPORT VIEW -->
+          <div class="tab-pane hidden" id="markdown-view">
+            <div class="markdown-header">
+              <h3>Clinical Note Summary Report</h3>
+              <button class="btn-secondary" id="btn-copy-markdown">
+                <i data-lucide="copy"></i> Copy Markdown
+              </button>
+            </div>
+            <pre class="markdown-preview-container"><code id="markdown-text-area"></code></pre>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Settings Modal (Gemini API Configuration) -->
+  <div class="modal-overlay hidden" id="settings-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i data-lucide="settings" class="text-teal"></i>
+          <h3>Engine Connection Setup</h3>
+        </div>
+        <button class="modal-close" id="btn-close-settings">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-description">
+          Synapse works out of the box in <strong>Simulation Mode</strong> using local regex logic, but can integrate with the <strong>Google Gemini 1.5 Flash Model</strong> for full unstructured-to-structured clinical summarization.
+        </p>
+
+        <div class="form-group">
+          <label for="gemini-key-input">Gemini API Key</label>
+          <div class="input-password-wrapper">
+            <input 
+              type="password" 
+              id="gemini-key-input" 
+              placeholder="AIzaSy..." 
+              class="form-control"
+            />
+            <button class="btn-toggle-password" id="btn-toggle-key-visibility">
+              <i data-lucide="eye"></i>
+            </button>
+          </div>
+          <small class="form-hint">
+            Your key is processed client-side and saved only inside your local browser's storage (<code class="text-blue">localStorage</code>). It is never sent to any external server other than Google's Gemini API endpoints.
+          </small>
+        </div>
+
+        <div class="modal-status-box idle" id="key-test-status">
+          <i data-lucide="help-circle"></i>
+          <span>Enter API Key to test connection.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-cancel-settings">Cancel</button>
+        <div class="footer-actions-right">
+          <button class="btn-outline-red hidden" id="btn-clear-settings">Remove Key</button>
+          <button class="btn-primary" id="btn-save-settings">Save Config</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
